@@ -4,13 +4,13 @@
 #  Copyright 2009 - 2010 Enrique F. Castañón Barbero
 #
 #  Plugin for use Nes in CGI::Application
-#  Requires Nes 1.03.3 or higher
+#  Requires Nes 1.04 or higher
 #
 # -----------------------------------------------------------------------------
 
 package CGI::Application::Plugin::Nes;
 
-our $VERSION = '0.00_1';
+our $VERSION = '0.01';
 
 use warnings;
 use strict;
@@ -18,38 +18,16 @@ use strict;
 use Nes;
 use base 'CGI::Application';
 
-our $MOD_PERL  = $ENV{'MOD_PERL'} || 0;
-our $MOD_PERL1 = $MOD_PERL =~ /mod_perl\/1/ || 0;
-our $MOD_PERL2 = $MOD_PERL =~ /mod_perl\/2/ || 0;
+$ENV{'CGI_APP_RETURN_ONLY'} = 1;
+$ENV{'CGI_APP_NES_BY_CGI'}  = 0;
+$ENV{'CGI_APP_NES_DIR'}     = '';
+$ENV{'CGI_APP_NES_DIR_CGI'} = '';
 
-&nes_init;
-
-if ( $MOD_PERL2 ) {
-  require Apache2::RequestUtil;
-  require Apache2::RequestIO;
-  require APR::Pool;
-  Apache2::RequestUtil->request->pool->cleanup_register(\&nes_init);
-}
-  
-if ( $MOD_PERL1 ) {
-  require Apache;
-  Apache->request->register_cleanup(\&nes_init);
-}
-
-sub nes_init {
-  
-  $ENV{'CGI_APP_RETURN_ONLY'} = 1;
-  $ENV{'CGI_APP_NES_BY_CGI'}  = 0;
-  $ENV{'CGI_APP_NES_DIR'}     = '';
-  $ENV{'CGI_APP_NES_DIR_CGI'} = '';
-  
-  $CGI::Application::Plugin::Nes::top_script   = $ENV{'SCRIPT_FILENAME'} || ''; 
-  $CGI::Application::Plugin::Nes::top_dir      = $CGI::Application::Plugin::Nes::top_script;
-  $CGI::Application::Plugin::Nes::top_dir      =~ s/\/[^\/]*\.cgi|pl$//;
-  $CGI::Application::Plugin::Nes::top_template = $CGI::Application::Plugin::Nes::top_script;
-  $CGI::Application::Plugin::Nes::top_template =~ s/\.cgi|pl$/\.nhtml/;
-  
-}
+$CGI::Application::Plugin::Nes::top_script   = $ENV{'SCRIPT_FILENAME'} || ''; 
+$CGI::Application::Plugin::Nes::top_dir      = $CGI::Application::Plugin::Nes::top_script;
+$CGI::Application::Plugin::Nes::top_dir      =~ s/\/[^\/]*\.cgi|pl$//;
+$CGI::Application::Plugin::Nes::top_template = $CGI::Application::Plugin::Nes::top_script;
+$CGI::Application::Plugin::Nes::top_template =~ s/\.cgi|pl$/\.nhtml/;
 
 sub cgiapp_init {
   my $self = shift;
@@ -57,12 +35,11 @@ sub cgiapp_init {
 
   $self->SUPER::cgiapp_init(@args);
   
-  $self->{'nes_instance'} = Nes::Singleton->new(
-                              $CGI::Application::Plugin::Nes::top_template,
-                              $ENV{'CGI_APP_NES_DIR'},
-                              $ENV{'CGI_APP_NES_DIR_CGI'}
-                            );
-
+  $self->{'nes'} = Nes::Singleton->new({
+                      template    => $CGI::Application::Plugin::Nes::top_template,
+                      nes_top_dir => $ENV{'CGI_APP_NES_DIR'},
+                      nes_dir     => $ENV{'CGI_APP_NES_DIR_CGI'}
+                   });
 }
 
 sub cgiapp_get_query {
@@ -72,11 +49,11 @@ sub cgiapp_get_query {
   
   if ( $ENV{'CGI_APP_NES_BY_CGI'} ) {
 
-    $q = $self->{'nes_instance'}->{'query'}->by_CGI;
+    $q = $self->{'nes'}->{'query'}->by_CGI;
 
   } else {
 
-    $q = $self->{'nes_instance'}->{'query'};
+    $q = $self->{'nes'}->{'query'};
 
   }
   
@@ -102,9 +79,19 @@ CGI::Application::Plugin::Nes - Nes templates in CGI::Application
 =head1 DESCRIPTION
 
 Plugin for use L<Nes> templates in L<CGI::Application>. You can use any Nes 
-object or plugin, PHP, SH, PYTHON, ... in CGI::Application.
+object or plugin in CGI::Application.
 
-Live sample: L<http://nes.sourceforge.net/hello_nes/tests-cgiapp/index.nhtml>
+Include Nes Templates, PHP, PYTHON and others live sample: 
+
+  L<http://nes.sourceforge.net/hello_nes/tests-cgiapp/index.cgi?action=Inludes>
+
+Include Nes Objects live sample: 
+
+  L<http://nes.sourceforge.net/hello_nes/tests-cgiapp/index.cgi?action=Objects>
+
+Nes Tags and Debug Info live sample: 
+
+  L<http://nes.sourceforge.net/hello_nes/tests-cgiapp/index.cgi?action=others>
 
 =head1 INPLEMENTATION
 
@@ -124,7 +111,7 @@ myapp.cgi:
   use MyApp;
   my $app = MyApp->new();
   $app->run();
-  1; # cgi should return 1 as the pm files.
+  1; # in Nes cgi should return 1 as the pm files.
 
 myapp.nhtml:
 
@@ -150,7 +137,8 @@ For compatibility with CGI.pm:
 
   $ENV{CGI_APP_NES_BY_CGI} = 1;
 
-It's a bit slower than letting to Nes handle the query.
+It's a bit slower than letting to Nes handle the query. 
+Not support for upload.
 
 =head1 Compare
 
@@ -207,7 +195,7 @@ Skriptke: Enrique Castañón
 
 =head1 VERSION
 
-Version 0.00_1
+Version 0.01
 
 =head1 COPYRIGHT
 
